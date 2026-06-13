@@ -45,7 +45,63 @@ export function reindent(code: string, indent: string): string {
     .join('\n');
 }
 
-/** Convenience: strip fences then re-indent in one step. */
-export function shapeOutput(text: string, indent: string): string {
-  return reindent(stripCodeFences(text), indent);
+/**
+ * Removes leading/trailing generated lines that merely duplicate the adjacent context
+ * (compared by trimmed content, so indentation differences don't hide a duplicate).
+ * Smaller models sometimes re-emit surrounding code despite instructions; this strips it
+ * deterministically so insertion never duplicates existing lines.
+ */
+export function trimContextOverlap(
+  code: string,
+  contextAbove: readonly string[],
+  contextBelow: readonly string[],
+): string {
+  const lines = code.split('\n');
+  const eq = (a: string, b: string): boolean => a.trim() === b.trim();
+
+  // Leading lines that repeat the tail of contextAbove.
+  let lead = 0;
+  for (let k = Math.min(lines.length, contextAbove.length); k >= 1; k--) {
+    let match = true;
+    for (let i = 0; i < k; i++) {
+      if (!eq(lines[i], contextAbove[contextAbove.length - k + i])) {
+        match = false;
+        break;
+      }
+    }
+    if (match) {
+      lead = k;
+      break;
+    }
+  }
+
+  // Trailing lines that repeat the head of contextBelow.
+  let trail = 0;
+  const remaining = lines.length - lead;
+  for (let k = Math.min(remaining, contextBelow.length); k >= 1; k--) {
+    let match = true;
+    for (let i = 0; i < k; i++) {
+      if (!eq(lines[lines.length - k + i], contextBelow[i])) {
+        match = false;
+        break;
+      }
+    }
+    if (match) {
+      trail = k;
+      break;
+    }
+  }
+
+  return lines.slice(lead, lines.length - trail).join('\n');
+}
+
+/** Strip fences, trim context overlap, then re-indent in one step. */
+export function shapeOutput(
+  text: string,
+  indent: string,
+  contextAbove: readonly string[] = [],
+  contextBelow: readonly string[] = [],
+): string {
+  const trimmed = trimContextOverlap(stripCodeFences(text), contextAbove, contextBelow);
+  return reindent(trimmed, indent);
 }

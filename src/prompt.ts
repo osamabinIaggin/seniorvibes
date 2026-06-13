@@ -31,10 +31,12 @@ export function assemblePrompt(input: PromptInput): AssembledPrompt {
 
   let system =
     `You are seniorvibes, a code-generation assistant embedded directly inside a source file.\n` +
-    `Output ONLY raw ${languageId} code. Do NOT wrap it in markdown code fences. ` +
-    `Do NOT add explanations, comments about the task, or prose.\n` +
-    `Match the surrounding code's style and indentation. Your output is inserted verbatim ` +
-    `into the file at the marked point, so it must be valid ${languageId}.`;
+    `Write ONLY the new ${languageId} code that satisfies the instruction(s). Rules:\n` +
+    `- Output raw code only: no markdown fences, no explanations, no prose.\n` +
+    `- Do NOT repeat, restate, or rewrite any of the surrounding code shown for context — ` +
+    `it is already in the file. Emit only the NEW lines to insert.\n` +
+    `- Match the surrounding indentation and style. Your output is inserted verbatim at the ` +
+    `marked point, so it must be valid ${languageId}.`;
 
   if (projectPrompt && projectPrompt.trim().length > 0) {
     system += `\n\n--- project conventions ---\n${projectPrompt.trim()}`;
@@ -42,13 +44,16 @@ export function assemblePrompt(input: PromptInput): AssembledPrompt {
 
   const parts: string[] = [`File: ${filePath} (language: ${languageId})`];
   if (contextAbove.length > 0) {
-    parts.push(section('code above the insertion point', contextAbove.join('\n')));
+    parts.push(section('context above — already in the file, do NOT repeat', contextAbove.join('\n')));
   }
   if (contextBelow.length > 0) {
-    parts.push(section('code below the insertion point', contextBelow.join('\n')));
+    parts.push(section('context below — already in the file, do NOT repeat', contextBelow.join('\n')));
   }
   parts.push(section('instructions', directives.map((d) => `- ${d}`).join('\n')));
-  parts.push(`Write the ${languageId} code to insert at the marked point. Output only the code.`);
+  parts.push(
+    `Write only the NEW ${languageId} code to insert between the context above and below. ` +
+      `Do not repeat any surrounding code. Output only the code.`,
+  );
 
   return { system, user: parts.join('\n\n') };
 }

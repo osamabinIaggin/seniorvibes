@@ -28,6 +28,8 @@ export interface DirectiveBlock {
   readonly indent: string;
   /** Every directive text across the block, in order. */
   readonly texts: readonly string[];
+  /** The `before` code of each directive line (the code preceding the sentinel), in order. */
+  readonly befores: readonly string[];
 }
 
 /** Escapes a string for safe literal use inside a RegExp (the default `$#` needs this). */
@@ -112,6 +114,7 @@ export function collectDirectiveBlock(
   }
 
   const texts: string[] = [];
+  const befores: string[] = [];
   let indent = '';
   for (let i = startLine; i <= endLine; i++) {
     const parsed = parseLine(getLineText(i), i, sentinel);
@@ -120,8 +123,9 @@ export function collectDirectiveBlock(
         indent = parsed.indent;
       }
       texts.push(...parsed.texts);
+      befores.push(parsed.before);
     }
   }
 
-  return { startLine, endLine, indent, texts };
+  return { startLine, endLine, indent, texts, befores };
 }

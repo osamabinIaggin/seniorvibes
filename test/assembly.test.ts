@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { stripCodeFences, reindent, shapeOutput } from '../src/output.ts';
+import { stripCodeFences, reindent, shapeOutput, trimContextOverlap } from '../src/output.ts';
 import { assemblePrompt } from '../src/prompt.ts';
 
 // --- output sanitization -----------------------------------------------------
@@ -30,6 +30,31 @@ test('shapeOutput — strips fences and re-indents in one pass', () => {
   assert.equal(shapeOutput('```ts\nif (x) {\n  y();\n}\n```', '  '), '  if (x) {\n    y();\n  }');
 });
 
+// --- context overlap trimming ------------------------------------------------
+
+test('trimContextOverlap — strips trailing lines that duplicate context below', () => {
+  const code = '    if (!user) {\n      throw new NotFoundException();\n    }\n    return user;\n  }\n}';
+  // model re-emitted the method/class closing braces that are already in the file
+  const out = trimContextOverlap(code, [], ['  }', '}']);
+  assert.equal(out, '    if (!user) {\n      throw new NotFoundException();\n    }\n    return user;');
+});
+
+test('trimContextOverlap — strips leading lines that duplicate context above', () => {
+  const code = 'const x = 1;\nconsole.log(x);';
+  const out = trimContextOverlap(code, ['const x = 1;'], []);
+  assert.equal(out, 'console.log(x);');
+});
+
+test('trimContextOverlap — compares by trimmed content (ignores indentation)', () => {
+  const out = trimContextOverlap('        }', [], ['}']);
+  assert.equal(out, '');
+});
+
+test('trimContextOverlap — leaves non-overlapping code untouched', () => {
+  const code = 'return a + b;';
+  assert.equal(trimContextOverlap(code, ['class X {'], ['}']), 'return a + b;');
+});
+
 // --- prompt assembly ---------------------------------------------------------
 
 test('assemblePrompt — system pins the language and forbids fences/prose', () => {
@@ -40,8 +65,9 @@ test('assemblePrompt — system pins the language and forbids fences/prose', () 
     contextAbove: [],
     contextBelow: [],
   });
-  assert.match(system, /ONLY raw python code/);
-  assert.match(system, /Do NOT wrap it in markdown code fences/);
+  assert.match(system, /ONLY the new python code/);
+  assert.match(system, /no markdown fences/);
+  assert.match(system, /Do NOT repeat/);
 });
 
 test('assemblePrompt — user carries file, directives and present context', () => {
@@ -54,8 +80,8 @@ test('assemblePrompt — user carries file, directives and present context', () 
   });
   assert.match(user, /File: src\/x\.ts \(language: typescript\)/);
   assert.match(user, /- do a\n- do b/);
-  assert.match(user, /code above the insertion point/);
-  assert.match(user, /code below the insertion point/);
+  assert.match(user, /--- context above/);
+  assert.match(user, /--- context below/);
 });
 
 test('assemblePrompt — omits empty context sections and includes project prompt', () => {
@@ -67,6 +93,6 @@ test('assemblePrompt — omits empty context sections and includes project promp
     contextBelow: [],
     projectPrompt: 'Always return wrapped errors.',
   });
-  assert.doesNotMatch(user, /code above the insertion point/);
+  assert.doesNotMatch(user, /--- context above/);
   assert.match(system, /Always return wrapped errors\./);
 });

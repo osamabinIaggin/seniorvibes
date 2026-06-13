@@ -74,12 +74,18 @@ export async function runGenerate(editor: vscode.TextEditor, anchorLine: number)
   const existing = findReplaceableBlock(getLine, document.lineCount, block.endLine + 1, known);
   const belowStart = existing ? existing.endLine + 1 : block.endLine + 1;
 
+  const contextAbove = [
+    ...sliceLines(document, block.startLine - settings.linesAbove, block.startLine),
+    ...block.befores.filter((b) => b.trim().length > 0),
+  ];
+  const contextBelow = sliceLines(document, belowStart, belowStart + settings.linesBelow);
+
   const { system, user } = assemblePrompt({
     languageId: document.languageId,
     filePath: vscode.workspace.asRelativePath(document.uri),
     directives: block.texts,
-    contextAbove: sliceLines(document, block.startLine - settings.linesAbove, block.startLine),
-    contextBelow: sliceLines(document, belowStart, belowStart + settings.linesBelow),
+    contextAbove,
+    contextBelow,
     projectPrompt: await readProjectPrompt(),
   });
 
@@ -130,7 +136,7 @@ export async function runGenerate(editor: vscode.TextEditor, anchorLine: number)
     return;
   }
 
-  const shaped = shapeOutput(raw, block.indent);
+  const shaped = shapeOutput(raw, block.indent, contextAbove, contextBelow);
   if (shaped.trim().length === 0) {
     void vscode.window.showWarningMessage('seniorvibes: the model returned no code.');
     return;

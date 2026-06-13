@@ -18,8 +18,29 @@
       {
         "command": "seniorvibes.ping",
         "title": "seniorvibes: ping"
+      },
+      {
+        "command": "seniorvibes.generate",
+        "title": "seniorvibes: generate"
       }
-    ]
+    ],
+    "keybindings": [
+      {
+        "command": "seniorvibes.generate",
+        "key": "shift+enter",
+        "when": "editorTextFocus && seniorvibes.onDirectiveLine && !suggestWidgetVisible"
+      }
+    ],
+    "configuration": {
+      "title": "seniorvibes",
+      "properties": {
+        "seniorvibes.sentinel": {
+          "type": "string",
+          "default": "$#",
+          "markdownDescription": "Trigger token that marks the rest of a line as a directive. May appear after existing code on the line. Regex-escaped automatically."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",

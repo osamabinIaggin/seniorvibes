@@ -1,31 +1,33 @@
 /**
  * Directive parsing — the heart of seniorvibes. Pure module: no `vscode` import,
  * so it can be unit-tested in isolation. Grammar is locked in SPEC.md §2.
+ *
+ * A sentinel is a directive boundary wherever it appears. A single line may carry
+ * several directives (`$# a $# b $# c`); a sentinel only triggers when followed by
+ * whitespace, so `$#glued` is treated as literal text, not a trigger.
  */
 
-export interface Directive {
-  /** Zero-based line number of the directive. */
+export interface LineParse {
+  /** Zero-based line number. */
   readonly lineNumber: number;
   /** Leading whitespace of the line; generated code aligns to this. */
   readonly indent: string;
-  /** Everything on the line before the sentinel; captured and NEVER modified. */
+  /** Text before the FIRST sentinel on the line; captured and NEVER modified. */
   readonly before: string;
-  /** The instruction text after the sentinel (trimmed, cut at any second sentinel). */
-  readonly text: string;
+  /** Directive instruction texts on this line, in order (always ≥ 1). */
+  readonly texts: readonly string[];
 }
 
 /** A maximal run of adjacent directive lines, generated together as one prompt. */
 export interface DirectiveBlock {
-  /** The directives, ordered top to bottom. */
-  readonly directives: readonly Directive[];
   /** First directive line (zero-based). */
   readonly startLine: number;
   /** Last directive line (zero-based); generated code is inserted below this. */
   readonly endLine: number;
-  /** Combined instruction text, one directive per line. */
-  readonly text: string;
   /** Indent of the first directive line. */
   readonly indent: string;
+  /** Every directive text across the block, in order. */
+  readonly texts: readonly string[];
 }
 
 /** Escapes a string for safe literal use inside a RegExp (the default `$#` needs this). */
@@ -34,54 +36,49 @@ export function escapeRegExp(input: string): string {
 }
 
 /**
- * Builds the directive matcher for a (possibly user-customised) sentinel.
- *   ^(?<before>.*?)<S>[ \t]+(?<directive>.*\S)[ \t]*$
- * `before` is lazy, so the FIRST sentinel followed by whitespace+content wins.
+ * Splitter for a (possibly user-customised) sentinel: matches the sentinel only when
+ * it is followed by whitespace. Splitting a line on this yields `[before, ...directives]`.
  */
-export function buildDirectiveRegex(sentinel: string): RegExp {
-  const s = escapeRegExp(sentinel);
-  return new RegExp(`^(?<before>.*?)${s}[ \\t]+(?<directive>.*\\S)[ \\t]*$`);
+export function buildSplitRegex(sentinel: string): RegExp {
+  return new RegExp(`${escapeRegExp(sentinel)}[ \\t]+`);
 }
 
 /**
- * Parses a single line into a Directive, or null if the line is not a directive.
- * A second occurrence of the sentinel on the same line terminates the directive;
- * anything after it on that line is ignored.
+ * Parses a single line. Returns null if the line carries no directive; otherwise the
+ * captured `before` text and one-or-more trimmed directive `texts`.
  */
-export function parseDirective(
+export function parseLine(
   lineText: string,
   lineNumber: number,
   sentinel: string,
-): Directive | null {
+): LineParse | null {
   if (sentinel.length === 0) {
     return null;
   }
-  const match = buildDirectiveRegex(sentinel).exec(lineText);
-  if (!match?.groups) {
-    return null;
+  const segments = lineText.split(buildSplitRegex(sentinel));
+  if (segments.length < 2) {
+    return null; // no `sentinel + whitespace` occurrence
   }
-  // Cut at a second same-line sentinel (split takes the sentinel literally).
-  const text = match.groups.directive.split(sentinel)[0].trim();
-  if (text.length === 0) {
-    return null;
+  const texts = segments
+    .slice(1)
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0);
+  if (texts.length === 0) {
+    return null; // sentinel present but every directive was empty
   }
   const indent = /^[ \t]*/.exec(lineText)?.[0] ?? '';
   return {
     lineNumber,
     indent,
-    before: match.groups.before,
-    text,
+    before: segments[0],
+    texts,
   };
 }
 
 /**
  * From an anchor line, collect the maximal run of adjacent directive lines around it
- * (walking up and down), or null if the anchor line is not a directive.
- *
- * @param getLineText returns the raw text of a given zero-based line
- * @param lineCount   total number of lines in the document
- * @param anchorLine  the triggered line
- * @param sentinel    the configured trigger token
+ * (walking up and down), flattening every directive across those lines into one block.
+ * Returns null if the anchor line carries no directive.
  */
 export function collectDirectiveBlock(
   getLineText: (lineNumber: number) => string,
@@ -89,36 +86,31 @@ export function collectDirectiveBlock(
   anchorLine: number,
   sentinel: string,
 ): DirectiveBlock | null {
-  if (parseDirective(getLineText(anchorLine), anchorLine, sentinel) === null) {
+  if (parseLine(getLineText(anchorLine), anchorLine, sentinel) === null) {
     return null;
   }
 
   let startLine = anchorLine;
-  while (startLine - 1 >= 0 && parseDirective(getLineText(startLine - 1), startLine - 1, sentinel)) {
+  while (startLine - 1 >= 0 && parseLine(getLineText(startLine - 1), startLine - 1, sentinel)) {
     startLine--;
   }
 
   let endLine = anchorLine;
-  while (
-    endLine + 1 < lineCount &&
-    parseDirective(getLineText(endLine + 1), endLine + 1, sentinel)
-  ) {
+  while (endLine + 1 < lineCount && parseLine(getLineText(endLine + 1), endLine + 1, sentinel)) {
     endLine++;
   }
 
-  const directives: Directive[] = [];
+  const texts: string[] = [];
+  let indent = '';
   for (let i = startLine; i <= endLine; i++) {
-    const directive = parseDirective(getLineText(i), i, sentinel);
-    if (directive) {
-      directives.push(directive);
+    const parsed = parseLine(getLineText(i), i, sentinel);
+    if (parsed) {
+      if (i === startLine) {
+        indent = parsed.indent;
+      }
+      texts.push(...parsed.texts);
     }
   }
 
-  return {
-    directives,
-    startLine,
-    endLine,
-    text: directives.map((d) => d.text).join('\n'),
-    indent: directives[0].indent,
-  };
+  return { startLine, endLine, indent, texts };
 }

@@ -54,7 +54,8 @@
     "package": "node esbuild.js --production",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
-    "verify": "npm run check-types && npm run lint && npm run compile"
+    "test": "node --test \"test/*.test.ts\"",
+    "verify": "npm run check-types && npm run lint && npm run test && npm run compile"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { parseDirective } from './directive';
+import { parseLine } from './directive';
 
 /**
  * Maintains two context keys:
@@ -27,7 +27,7 @@ export class DirectiveContextKey {
       const selection = editor.selection;
       const line = selection.active.line;
       const lineText = editor.document.lineAt(line).text;
-      onDirectiveLine = parseDirective(lineText, line, this.getSentinel()) !== null;
+      onDirectiveLine = parseLine(lineText, line, this.getSentinel()) !== null;
       atDirectiveLineEnd =
         onDirectiveLine &&
         selection.isEmpty &&

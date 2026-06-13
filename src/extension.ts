@@ -45,8 +45,8 @@ export function activate(context: vscode.ExtensionContext): void {
         void vscode.window.showWarningMessage('seniorvibes: no directive on this line.');
         return;
       }
-      const count = block.directives.length;
-      const joined = block.directives.map((d) => d.text).join('  ⏎  ');
+      const count = block.texts.length;
+      const joined = block.texts.join('  ⏎  ');
       void vscode.window.showInformationMessage(
         `seniorvibes parsed → "${joined}"  (lang ${editor.document.languageId}, ` +
           `${count} directive${count > 1 ? 's' : ''}, insert below line ${block.endLine + 1})`,

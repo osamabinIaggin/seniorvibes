@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { collectDirectiveBlock, parseDirective } from './directive';
+import { collectDirectiveBlock, parseLine } from './directive';
 
 /**
  * Shows a `▶ seniorvibes: generate` CodeLens over the FIRST line of every directive
@@ -24,7 +24,7 @@ export class DirectiveCodeLensProvider implements vscode.CodeLensProvider {
 
     let i = 0;
     while (i < document.lineCount) {
-      if (parseDirective(getLineText(i), i, sentinel) === null) {
+      if (parseLine(getLineText(i), i, sentinel) === null) {
         i++;
         continue;
       }
@@ -33,7 +33,7 @@ export class DirectiveCodeLensProvider implements vscode.CodeLensProvider {
         i++;
         continue;
       }
-      const count = block.directives.length;
+      const count = block.texts.length;
       const title =
         count > 1 ? `▶ seniorvibes: generate (${count} directives)` : '▶ seniorvibes: generate';
       lenses.push(

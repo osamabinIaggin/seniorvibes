@@ -10,6 +10,8 @@ export interface Settings {
   readonly ollamaModel: string;
   readonly linesAbove: number;
   readonly linesBelow: number;
+  readonly removeDirective: boolean;
+  readonly removeDirectiveDelayMs: number;
 }
 
 /** The configured trigger token, falling back to the default if unset/empty. */
@@ -28,6 +30,8 @@ export function getSettings(): Settings {
     ollamaModel: c.get<string>('ollama.model') ?? 'qwen2.5-coder',
     linesAbove: c.get<number>('context.linesAbove') ?? 40,
     linesBelow: c.get<number>('context.linesBelow') ?? 10,
+    removeDirective: c.get<boolean>('directive.removeAfterGenerate') ?? true,
+    removeDirectiveDelayMs: c.get<number>('directive.removeDelayMs') ?? 5000,
   };
 }
 

@@ -85,6 +85,16 @@
           "type": "number",
           "default": 5000,
           "description": "How long the highlight stays before the code returns to normal. 0 disables it."
+        },
+        "seniorvibes.directive.removeAfterGenerate": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "After a successful generation, remove the directive line(s) after a delay, leaving only the generated code. Skipped if your cursor is on the directive when the timer fires."
+        },
+        "seniorvibes.directive.removeDelayMs": {
+          "type": "number",
+          "default": 5000,
+          "description": "Delay before the directive line is auto-removed. 0 keeps the directive."
         }
       }
     }

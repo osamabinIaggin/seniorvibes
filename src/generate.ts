@@ -3,7 +3,7 @@ import { getSettings, getHighlight, type Settings } from './config';
 import { collectDirectiveBlock } from './directive';
 import { assemblePrompt } from './prompt';
 import { shapeOutput } from './output';
-import { findReplaceableBlock } from './recent';
+import { findReplaceableBlock, locateBlock } from './recent';
 import { flashRange } from './highlight';
 import { OllamaProvider } from './ollama';
 import { ProviderError, type Provider } from './provider';
@@ -165,4 +165,59 @@ export async function runGenerate(editor: vscode.TextEditor, anchorLine: number)
     const range = new vscode.Range(insertStart, 0, insertEnd, document.lineAt(insertEnd).text.length);
     flashRange(editor, range, getHighlight());
   }
+
+  // Leave the directive in place briefly, then auto-remove it for clean output —
+  // unless the cursor is resting on it (the user's signal to keep/tweak/re-run).
+  if (settings.removeDirective) {
+    const directiveTexts = sliceLines(document, block.startLine, block.endLine + 1);
+    scheduleDirectiveCleanup(editor, document, block.startLine, directiveTexts, settings.removeDirectiveDelayMs);
+  }
+}
+
+function scheduleDirectiveCleanup(
+  editor: vscode.TextEditor,
+  document: vscode.TextDocument,
+  guessLine: number,
+  directiveTexts: string[],
+  delayMs: number,
+): void {
+  if (delayMs <= 0) {
+    return;
+  }
+  setTimeout(() => void removeDirectiveIfIdle(editor, document, guessLine, directiveTexts), delayMs);
+}
+
+async function removeDirectiveIfIdle(
+  editor: vscode.TextEditor,
+  document: vscode.TextDocument,
+  guessLine: number,
+  directiveTexts: string[],
+): Promise<void> {
+  if (document.isClosed) {
+    return;
+  }
+  const located = locateBlock(
+    (n) => document.lineAt(n).text,
+    document.lineCount,
+    guessLine,
+    directiveTexts,
+  );
+  if (!located) {
+    return; // directive was edited or moved out of range — leave it alone
+  }
+
+  // Cursor protection: if the caret is on any directive line, keep it.
+  const active = editor.selection.active.line;
+  if (active >= located.startLine && active <= located.endLine) {
+    return;
+  }
+
+  const start = new vscode.Position(located.startLine, 0);
+  const end =
+    located.endLine + 1 < document.lineCount
+      ? new vscode.Position(located.endLine + 1, 0)
+      : new vscode.Position(located.endLine, document.lineAt(located.endLine).text.length);
+  const edit = new vscode.WorkspaceEdit();
+  edit.delete(document.uri, new vscode.Range(start, end));
+  await vscode.workspace.applyEdit(edit);
 }

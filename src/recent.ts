@@ -45,3 +45,35 @@ export function findReplaceableBlock(
   }
   return null;
 }
+
+/**
+ * Searches a window of lines around `guessLine` for a contiguous run matching `texts`
+ * verbatim. Used to re-locate the directive line(s) before auto-removal, so a line shift
+ * during the delay never causes the wrong lines to be deleted.
+ */
+export function locateBlock(
+  getLineText: (lineNumber: number) => string,
+  lineCount: number,
+  guessLine: number,
+  texts: readonly string[],
+  window = 50,
+): ReplaceableBlock | null {
+  if (texts.length === 0) {
+    return null;
+  }
+  const from = Math.max(0, guessLine - window);
+  const to = Math.min(lineCount - texts.length, guessLine + window);
+  for (let start = from; start <= to; start++) {
+    let matches = true;
+    for (let i = 0; i < texts.length; i++) {
+      if (getLineText(start + i) !== texts[i]) {
+        matches = false;
+        break;
+      }
+    }
+    if (matches) {
+      return { startLine: start, endLine: start + texts.length - 1, text: texts.join('\n') };
+    }
+  }
+  return null;
+}

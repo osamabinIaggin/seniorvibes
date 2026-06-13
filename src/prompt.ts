@@ -49,9 +49,15 @@ export function assemblePrompt(input: PromptInput): AssembledPrompt {
   if (contextBelow.length > 0) {
     parts.push(section('context below — already in the file, do NOT repeat', contextBelow.join('\n')));
   }
-  parts.push(section('instructions', directives.map((d) => `- ${d}`).join('\n')));
+  const numbered = directives.map((d, i) => `${i + 1}. ${d}`).join('\n');
+  const allOf =
+    directives.length > 1
+      ? `instructions — implement ALL ${directives.length}, in order, skipping none`
+      : 'instructions';
+  parts.push(section(allOf, numbered));
   parts.push(
     `Write only the NEW ${languageId} code to insert between the context above and below. ` +
+      `${directives.length > 1 ? 'Produce code for every numbered instruction. ' : ''}` +
       `Do not repeat any surrounding code. Output only the code.`,
   );
 

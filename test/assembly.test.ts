@@ -79,7 +79,8 @@ test('assemblePrompt — user carries file, directives and present context', () 
     contextBelow: ['}'],
   });
   assert.match(user, /File: src\/x\.ts \(language: typescript\)/);
-  assert.match(user, /- do a\n- do b/);
+  assert.match(user, /1\. do a\n2\. do b/);
+  assert.match(user, /implement ALL 2/);
   assert.match(user, /--- context above/);
   assert.match(user, /--- context below/);
 });

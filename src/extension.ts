@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import { getSentinel } from './config';
-import { collectDirectiveBlock } from './directive';
 import { DirectiveContextKey } from './contextKey';
 import { DirectiveCodeLensProvider } from './codeLensProvider';
+import { runGenerate } from './generate';
 
 export function activate(context: vscode.ExtensionContext): void {
   console.log('[seniorvibes] activated');
@@ -26,31 +26,16 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
   );
 
-  // generate — Phase 2 echoes the parsed (possibly compounded) directive block.
+  // generate — runs the full generation flow for the directive block.
   // Invoked with a line number from CodeLens, or without one from the keybinding.
   context.subscriptions.push(
-    vscode.commands.registerCommand('seniorvibes.generate', (lineArg?: number) => {
+    vscode.commands.registerCommand('seniorvibes.generate', async (lineArg?: number) => {
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
         return;
       }
       const anchor = typeof lineArg === 'number' ? lineArg : editor.selection.active.line;
-      const block = collectDirectiveBlock(
-        (n) => editor.document.lineAt(n).text,
-        editor.document.lineCount,
-        anchor,
-        getSentinel(),
-      );
-      if (!block) {
-        void vscode.window.showWarningMessage('seniorvibes: no directive on this line.');
-        return;
-      }
-      const count = block.texts.length;
-      const joined = block.texts.join('  ⏎  ');
-      void vscode.window.showInformationMessage(
-        `seniorvibes parsed → "${joined}"  (lang ${editor.document.languageId}, ` +
-          `${count} directive${count > 1 ? 's' : ''}, insert below line ${block.endLine + 1})`,
-      );
+      await runGenerate(editor, anchor);
     }),
   );
 

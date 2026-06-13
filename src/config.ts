@@ -2,8 +2,30 @@ import * as vscode from 'vscode';
 
 const DEFAULT_SENTINEL = '$#';
 
+export interface Settings {
+  readonly sentinel: string;
+  readonly provider: string;
+  readonly ollamaEndpoint: string;
+  readonly ollamaModel: string;
+  readonly linesAbove: number;
+  readonly linesBelow: number;
+}
+
 /** The configured trigger token, falling back to the default if unset/empty. */
 export function getSentinel(): string {
   const value = vscode.workspace.getConfiguration('seniorvibes').get<string>('sentinel');
   return value && value.length > 0 ? value : DEFAULT_SENTINEL;
+}
+
+/** All settings, with defaults applied. */
+export function getSettings(): Settings {
+  const c = vscode.workspace.getConfiguration('seniorvibes');
+  return {
+    sentinel: getSentinel(),
+    provider: c.get<string>('provider') ?? 'ollama',
+    ollamaEndpoint: c.get<string>('ollama.endpoint') ?? 'http://localhost:11434',
+    ollamaModel: c.get<string>('ollama.model') ?? 'qwen2.5-coder',
+    linesAbove: c.get<number>('context.linesAbove') ?? 40,
+    linesBelow: c.get<number>('context.linesBelow') ?? 10,
+  };
 }

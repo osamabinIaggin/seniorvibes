@@ -43,6 +43,32 @@
           "type": "string",
           "default": "$#",
           "markdownDescription": "Trigger token that marks the rest of a line as a directive. May appear after existing code on the line. Regex-escaped automatically."
+        },
+        "seniorvibes.provider": {
+          "type": "string",
+          "enum": ["ollama"],
+          "default": "ollama",
+          "description": "Code-generation backend."
+        },
+        "seniorvibes.ollama.endpoint": {
+          "type": "string",
+          "default": "http://localhost:11434",
+          "description": "Base URL of the local Ollama server."
+        },
+        "seniorvibes.ollama.model": {
+          "type": "string",
+          "default": "qwen2.5-coder",
+          "description": "Ollama model used for generation. Pull it first, e.g. `ollama pull qwen2.5-coder`."
+        },
+        "seniorvibes.context.linesAbove": {
+          "type": "number",
+          "default": 40,
+          "description": "Lines of code above the directive sent as context."
+        },
+        "seniorvibes.context.linesBelow": {
+          "type": "number",
+          "default": 10,
+          "description": "Lines of code below the insertion point sent as context."
         }
       }
     }

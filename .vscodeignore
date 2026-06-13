@@ -1,0 +1,12 @@
+.vscode/**
+src/**
+node_modules/**
+.gitignore
+.git/**
+esbuild.js
+eslint.config.js
+tsconfig.json
+SPEC.md
+PHASES.md
+**/*.map
+**/*.ts

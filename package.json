@@ -106,7 +106,7 @@
     "package": "node esbuild.js --production",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
-    "test": "node --experimental-transform-types --test \"test/*.test.ts\"",
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-transform-types --test \"test/*.test.ts\"",
     "verify": "npm run check-types && npm run lint && npm run test && npm run compile"
   },
   "devDependencies": {

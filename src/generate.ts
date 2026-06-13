@@ -4,6 +4,7 @@ import { collectDirectiveBlock } from './directive';
 import { assemblePrompt } from './prompt';
 import { shapeOutput } from './output';
 import { findReplaceableBlock, locateBlock } from './recent';
+import { DirectiveCleanupMachine } from './cleanup';
 import { flashRange } from './highlight';
 import { OllamaProvider } from './ollama';
 import { ProviderError, type Provider } from './provider';
@@ -166,58 +167,134 @@ export async function runGenerate(editor: vscode.TextEditor, anchorLine: number)
     flashRange(editor, range, getHighlight());
   }
 
-  // Leave the directive in place briefly, then auto-remove it for clean output —
-  // unless the cursor is resting on it (the user's signal to keep/tweak/re-run).
-  if (settings.removeDirective) {
+  // Leave the directive in place briefly, then auto-remove it for clean output. The
+  // countdown pauses while the cursor is on the directive and resets when it leaves.
+  if (settings.removeDirective && settings.removeDirectiveDelayMs > 0) {
     const directiveTexts = sliceLines(document, block.startLine, block.endLine + 1);
-    scheduleDirectiveCleanup(editor, document, block.startLine, directiveTexts, settings.removeDirectiveDelayMs);
+    new DirectiveCleanup(
+      editor,
+      document,
+      block.startLine,
+      directiveTexts,
+      settings.removeDirectiveDelayMs,
+    );
   }
 }
 
-function scheduleDirectiveCleanup(
-  editor: vscode.TextEditor,
-  document: vscode.TextDocument,
-  guessLine: number,
-  directiveTexts: string[],
-  delayMs: number,
-): void {
-  if (delayMs <= 0) {
-    return;
-  }
-  setTimeout(() => void removeDirectiveIfIdle(editor, document, guessLine, directiveTexts), delayMs);
-}
+/**
+ * Wires real VS Code timers and selection events to the pure DirectiveCleanupMachine,
+ * and re-locates the directive by exact text so a line shift never deletes the wrong lines.
+ * Self-disposes once it deletes, the directive is edited/moved away, or the document closes.
+ */
+class DirectiveCleanup {
+  private readonly machine: DirectiveCleanupMachine;
+  private readonly subs: vscode.Disposable[] = [];
+  private timer: ReturnType<typeof setTimeout> | undefined;
+  private disposed = false;
 
-async function removeDirectiveIfIdle(
-  editor: vscode.TextEditor,
-  document: vscode.TextDocument,
-  guessLine: number,
-  directiveTexts: string[],
-): Promise<void> {
-  if (document.isClosed) {
-    return;
-  }
-  const located = locateBlock(
-    (n) => document.lineAt(n).text,
-    document.lineCount,
-    guessLine,
-    directiveTexts,
-  );
-  if (!located) {
-    return; // directive was edited or moved out of range — leave it alone
+  constructor(
+    private readonly editor: vscode.TextEditor,
+    private readonly document: vscode.TextDocument,
+    private readonly guessLine: number,
+    private readonly directiveTexts: string[],
+    private readonly delayMs: number,
+  ) {
+    this.machine = new DirectiveCleanupMachine({
+      setTimer: () => this.setTimer(),
+      clearTimer: () => this.clearTimer(),
+      delete: () => void this.performDelete(),
+    });
+    this.subs.push(
+      vscode.window.onDidChangeTextEditorSelection((e) => {
+        if (e.textEditor.document === this.document) {
+          this.onCursorMoved();
+        }
+      }),
+      vscode.workspace.onDidCloseTextDocument((doc) => {
+        if (doc === this.document) {
+          this.dispose();
+        }
+      }),
+    );
+    this.machine.start(this.cursorOnDirective());
   }
 
-  // Cursor protection: if the caret is on any directive line, keep it.
-  const active = editor.selection.active.line;
-  if (active >= located.startLine && active <= located.endLine) {
-    return;
+  private located() {
+    return locateBlock(
+      (n) => this.document.lineAt(n).text,
+      this.document.lineCount,
+      this.guessLine,
+      this.directiveTexts,
+    );
   }
 
-  const start = new vscode.Position(located.startLine, 0);
-  const end =
-    located.endLine + 1 < document.lineCount
-      ? new vscode.Position(located.endLine + 1, 0)
-      : new vscode.Position(located.endLine, document.lineAt(located.endLine).text.length);
-  const edit = new vscode.WorkspaceEdit();
-  edit.delete(document.uri, new vscode.Range(start, end));
-  await vscode.workspace.applyEdit(edit);
+  private cursorOnDirective(): boolean {
+    const located = this.located();
+    if (!located) {
+      return false;
+    }
+    const line = this.editor.selection.active.line;
+    return line >= located.startLine && line <= located.endLine;
+  }
+
+  private onCursorMoved(): void {
+    if (this.disposed) {
+      return;
+    }
+    if (!this.located()) {
+      this.dispose(); // edited or moved out of range — stop trying
+      return;
+    }
+    this.machine.cursorMoved(this.cursorOnDirective());
+  }
+
+  private setTimer(): void {
+    this.clearTimer();
+    this.timer = setTimeout(() => {
+      this.timer = undefined;
+      if (this.disposed || this.document.isClosed) {
+        this.dispose();
+        return;
+      }
+      this.machine.timerFired(this.cursorOnDirective());
+    }, this.delayMs);
+  }
+
+  private clearTimer(): void {
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = undefined;
+    }
+  }
+
+  private async performDelete(): Promise<void> {
+    if (this.disposed) {
+      return;
+    }
+    const located = this.located();
+    if (!located) {
+      this.dispose();
+      return;
+    }
+    const start = new vscode.Position(located.startLine, 0);
+    const end =
+      located.endLine + 1 < this.document.lineCount
+        ? new vscode.Position(located.endLine + 1, 0)
+        : new vscode.Position(located.endLine, this.document.lineAt(located.endLine).text.length);
+    const edit = new vscode.WorkspaceEdit();
+    edit.delete(this.document.uri, new vscode.Range(start, end));
+    await vscode.workspace.applyEdit(edit);
+    this.dispose();
+  }
+
+  private dispose(): void {
+    if (this.disposed) {
+      return;
+    }
+    this.disposed = true;
+    this.clearTimer();
+    for (const sub of this.subs) {
+      sub.dispose();
+    }
+  }
 }

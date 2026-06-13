@@ -77,6 +77,41 @@ test('parseLine — a glued `$#` (no following space) stays literal in `before`'
   assert.deepEqual(d?.texts, ['baz']);
 });
 
+test('parseLine — trailing block-comment close is stripped', () => {
+  assert.deepEqual(p('  /* $# refactor this loop to use reduce */')?.texts, [
+    'refactor this loop to use reduce',
+  ]);
+});
+
+test('parseLine — trailing HTML comment close is stripped', () => {
+  assert.deepEqual(p('<!-- $# add a viewport meta tag -->')?.texts, ['add a viewport meta tag']);
+});
+
+test('parseLine — a block comment with no instruction is not a directive', () => {
+  assert.equal(p('/* $# */'), null);
+});
+
+test('parseLine — multiple directives inside one block comment, closer stripped', () => {
+  assert.deepEqual(p('/* $# do a $# do b */')?.texts, ['do a', 'do b']);
+});
+
+test('parseLine — realistic inline directive keeps preceding code in `before`', () => {
+  const d = p('    const u = await repo.find(id);  $# throw NotFoundException if null');
+  assert.equal(d?.before, '    const u = await repo.find(id);  ');
+  assert.deepEqual(d?.texts, ['throw NotFoundException if null']);
+});
+
+test('parseLine — prompt with regex/JSON/$ does not falsely split', () => {
+  assert.deepEqual(p('$# return /^[a-z]+$/ or { cost: "$5" }')?.texts, [
+    'return /^[a-z]+$/ or { cost: "$5" }',
+  ]);
+});
+
+test('parseLine — KNOWN LIMITATION: a $# inside a string literal still triggers (Phase 6 fix)', () => {
+  // Documents current behavior so we notice if/when tokenization changes it.
+  assert.deepEqual(p('logger.info("price is $# 5 dollars");')?.texts, ['5 dollars");']);
+});
+
 test('parseLine — custom sentinel', () => {
   assert.deepEqual(parseLine('  //ai do thing', 0, '//ai')?.texts, ['do thing']);
 });

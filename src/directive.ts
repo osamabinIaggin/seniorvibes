@@ -44,8 +44,19 @@ export function buildSplitRegex(sentinel: string): RegExp {
 }
 
 /**
+ * Strips a trailing one-line comment closer (block-comment or HTML-comment end) so a
+ * directive written inside such a comment doesn't carry the closer into the prompt.
+ */
+function stripTrailingCommentClose(text: string): string {
+  return text.replace(/\s*(?:\*\/|-->)\s*$/, '').trimEnd();
+}
+
+/**
  * Parses a single line. Returns null if the line carries no directive; otherwise the
  * captured `before` text and one-or-more trimmed directive `texts`.
+ *
+ * Known limitation: a sentinel sitting inside a string literal still triggers (we do not
+ * tokenize the line). Tracked for the Phase 6 tokenization work — see SPEC.md §2.
  */
 export function parseLine(
   lineText: string,
@@ -61,7 +72,7 @@ export function parseLine(
   }
   const texts = segments
     .slice(1)
-    .map((segment) => segment.trim())
+    .map((segment) => stripTrailingCommentClose(segment.trim()))
     .filter((segment) => segment.length > 0);
   if (texts.length === 0) {
     return null; // sentinel present but every directive was empty

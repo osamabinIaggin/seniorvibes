@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { getSentinel } from './config';
-import { parseDirective } from './directive';
+import { collectDirectiveBlock } from './directive';
 import { DirectiveContextKey } from './contextKey';
 import { DirectiveCodeLensProvider } from './codeLensProvider';
 
@@ -15,11 +15,9 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   // --- Phase 2: directive detection + triggers ---------------------------------
-  // Context key scopes the Shift+Enter keybinding to directive lines only.
   const contextKey = new DirectiveContextKey(getSentinel);
   contextKey.register(context);
 
-  // CodeLens trigger over every directive line.
   const codeLens = new DirectiveCodeLensProvider(getSentinel);
   context.subscriptions.push(
     vscode.languages.registerCodeLensProvider(
@@ -28,33 +26,56 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
   );
 
-  // generate — Phase 2 echoes the parsed directive (no LLM yet).
-  // Invoked with a line number from CodeLens, or without one from the keybinding
-  // (in which case the cursor's line is used).
+  // generate — Phase 2 echoes the parsed (possibly compounded) directive block.
+  // Invoked with a line number from CodeLens, or without one from the keybinding.
   context.subscriptions.push(
     vscode.commands.registerCommand('seniorvibes.generate', (lineArg?: number) => {
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
         return;
       }
-      const lineNumber = typeof lineArg === 'number' ? lineArg : editor.selection.active.line;
-      const directive = parseDirective(
-        editor.document.lineAt(lineNumber).text,
-        lineNumber,
+      const anchor = typeof lineArg === 'number' ? lineArg : editor.selection.active.line;
+      const block = collectDirectiveBlock(
+        (n) => editor.document.lineAt(n).text,
+        editor.document.lineCount,
+        anchor,
         getSentinel(),
       );
-      if (!directive) {
+      if (!block) {
         void vscode.window.showWarningMessage('seniorvibes: no directive on this line.');
         return;
       }
-      const placement = directive.before.trim().length > 0 ? 'inline after code' : 'line start';
+      const count = block.directives.length;
+      const joined = block.directives.map((d) => d.text).join('  ⏎  ');
       void vscode.window.showInformationMessage(
-        `seniorvibes parsed → "${directive.text}"  (lang ${editor.document.languageId}, ${placement}, indent ${directive.indent.length})`,
+        `seniorvibes parsed → "${joined}"  (lang ${editor.document.languageId}, ` +
+          `${count} directive${count > 1 ? 's' : ''}, insert below line ${block.endLine + 1})`,
       );
     }),
   );
 
-  // React to sentinel changes: refresh lenses and recompute the context key.
+  // continueDirective — Enter at the end of a directive line starts the next directive,
+  // pre-filled with the sentinel, so multi-line (compound) directives are quick to write.
+  context.subscriptions.push(
+    vscode.commands.registerCommand('seniorvibes.continueDirective', async () => {
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) {
+        return;
+      }
+      const sentinel = getSentinel();
+      const position = editor.selection.active;
+      const lineText = editor.document.lineAt(position.line).text;
+      const indent = /^[ \t]*/.exec(lineText)?.[0] ?? '';
+      const prefix = `${indent}${sentinel} `;
+      const inserted = await editor.edit((edit) => edit.insert(position, `\n${prefix}`));
+      if (inserted) {
+        const next = new vscode.Position(position.line + 1, prefix.length);
+        editor.selection = new vscode.Selection(next, next);
+      }
+    }),
+  );
+
+  // React to sentinel changes: refresh lenses and recompute the context keys.
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration('seniorvibes.sentinel')) {

@@ -1,3 +1,7 @@
+# Internal working docs — kept locally, not published
+SPEC.md
+PHASES.md
+
 node_modules/
 out/
 dist/

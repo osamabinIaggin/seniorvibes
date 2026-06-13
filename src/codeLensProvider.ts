@@ -1,9 +1,10 @@
 import * as vscode from 'vscode';
-import { parseDirective } from './directive';
+import { collectDirectiveBlock, parseDirective } from './directive';
 
 /**
- * Shows a `▶ seniorvibes: generate` CodeLens over every directive line —
- * the discoverable, mouse-friendly trigger alongside Shift+Enter.
+ * Shows a `▶ seniorvibes: generate` CodeLens over the FIRST line of every directive
+ * block — the discoverable, mouse-friendly trigger alongside Shift+Enter. Adjacent
+ * directives share one lens (labelled with the count).
  */
 export class DirectiveCodeLensProvider implements vscode.CodeLensProvider {
   private readonly changed = new vscode.EventEmitter<void>();
@@ -18,19 +19,33 @@ export class DirectiveCodeLensProvider implements vscode.CodeLensProvider {
 
   provideCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] {
     const sentinel = this.getSentinel();
+    const getLineText = (n: number): string => document.lineAt(n).text;
     const lenses: vscode.CodeLens[] = [];
-    for (let i = 0; i < document.lineCount; i++) {
-      const directive = parseDirective(document.lineAt(i).text, i, sentinel);
-      if (directive) {
-        lenses.push(
-          new vscode.CodeLens(new vscode.Range(i, 0, i, 0), {
-            title: '▶ seniorvibes: generate',
-            command: 'seniorvibes.generate',
-            arguments: [i],
-          }),
-        );
+
+    let i = 0;
+    while (i < document.lineCount) {
+      if (parseDirective(getLineText(i), i, sentinel) === null) {
+        i++;
+        continue;
       }
+      const block = collectDirectiveBlock(getLineText, document.lineCount, i, sentinel);
+      if (!block) {
+        i++;
+        continue;
+      }
+      const count = block.directives.length;
+      const title =
+        count > 1 ? `▶ seniorvibes: generate (${count} directives)` : '▶ seniorvibes: generate';
+      lenses.push(
+        new vscode.CodeLens(new vscode.Range(block.startLine, 0, block.startLine, 0), {
+          title,
+          command: 'seniorvibes.generate',
+          arguments: [block.startLine],
+        }),
+      );
+      i = block.endLine + 1;
     }
+
     return lenses;
   }
 }

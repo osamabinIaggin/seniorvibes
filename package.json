@@ -29,6 +29,11 @@
         "command": "seniorvibes.generate",
         "key": "shift+enter",
         "when": "editorTextFocus && seniorvibes.onDirectiveLine && !suggestWidgetVisible"
+      },
+      {
+        "command": "seniorvibes.continueDirective",
+        "key": "enter",
+        "when": "editorTextFocus && seniorvibes.atDirectiveLineEnd && !suggestWidgetVisible && !inSnippetMode"
       }
     ],
     "configuration": {

@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import type { HighlightStyle } from './highlight';
 
 const DEFAULT_SENTINEL = '$#';
 
@@ -27,5 +28,18 @@ export function getSettings(): Settings {
     ollamaModel: c.get<string>('ollama.model') ?? 'qwen2.5-coder',
     linesAbove: c.get<number>('context.linesAbove') ?? 40,
     linesBelow: c.get<number>('context.linesBelow') ?? 10,
+  };
+}
+
+/** Style for the temporary highlight applied to freshly generated code. */
+export function getHighlight(): HighlightStyle {
+  const c = vscode.workspace.getConfiguration('seniorvibes');
+  const kind = (c.get<string>('highlight.style') ?? 'foreground') as HighlightStyle['kind'];
+  const userColor = c.get<string>('highlight.color') ?? '';
+  const color = userColor || (kind === 'background' ? 'rgba(63,185,80,0.18)' : '#3fb950');
+  return {
+    kind,
+    color,
+    durationMs: c.get<number>('highlight.durationMs') ?? 5000,
   };
 }

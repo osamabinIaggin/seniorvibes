@@ -1,11 +1,24 @@
 import * as vscode from 'vscode';
-import { getSettings, type Settings } from './config';
+import { getSettings, getHighlight, type Settings } from './config';
 import { collectDirectiveBlock } from './directive';
 import { assemblePrompt } from './prompt';
-import { hashDirectives, wrapGenerated, findExistingBlock } from './fence';
 import { shapeOutput } from './output';
+import { findReplaceableBlock } from './recent';
+import { flashRange } from './highlight';
 import { OllamaProvider } from './ollama';
 import { ProviderError, type Provider } from './provider';
+
+/** Per-document memory of generated blocks, so a re-run can find and replace them. */
+const generatedByDoc = new Map<string, Set<string>>();
+
+function knownFor(uri: string): Set<string> {
+  let set = generatedByDoc.get(uri);
+  if (!set) {
+    set = new Set();
+    generatedByDoc.set(uri, set);
+  }
+  return set;
+}
 
 function makeProvider(settings: Settings): Provider {
   // Only Ollama is implemented in the MVP; the interface lets others drop in later.
@@ -42,11 +55,12 @@ async function readProjectPrompt(): Promise<string | undefined> {
  * The full generation flow for the directive block anchored at `anchorLine`:
  * collect the block, assemble the prompt with surrounding context, stream from the
  * provider under a cancellable progress notification, then atomically insert (or replace,
- * on re-run) a fenced block below the directives.
+ * on re-run) clean code below the directives — with a brief highlight on the new code.
  */
 export async function runGenerate(editor: vscode.TextEditor, anchorLine: number): Promise<void> {
   const settings = getSettings();
   const document = editor.document;
+  const uri = document.uri.toString();
   const getLine = (n: number): string => document.lineAt(n).text;
 
   const block = collectDirectiveBlock(getLine, document.lineCount, anchorLine, settings.sentinel);
@@ -55,7 +69,8 @@ export async function runGenerate(editor: vscode.TextEditor, anchorLine: number)
     return;
   }
 
-  const existing = findExistingBlock(getLine, document.lineCount, block.endLine + 1);
+  const known = knownFor(uri);
+  const existing = findReplaceableBlock(getLine, document.lineCount, block.endLine + 1, known);
   const belowStart = existing ? existing.endLine + 1 : block.endLine + 1;
 
   const { system, user } = assemblePrompt({
@@ -107,7 +122,6 @@ export async function runGenerate(editor: vscode.TextEditor, anchorLine: number)
   }
 
   // Guard: if the document changed during generation, our line ranges may be stale.
-  // Refuse to edit rather than risk corrupting the buffer.
   if (document.version !== versionBefore) {
     void vscode.window.showWarningMessage(
       'seniorvibes: the document changed during generation — re-run to insert.',
@@ -121,18 +135,34 @@ export async function runGenerate(editor: vscode.TextEditor, anchorLine: number)
     return;
   }
 
-  const wrapped = wrapGenerated(block.indent, document.languageId, hashDirectives(block.texts), shaped);
   const edit = new vscode.WorkspaceEdit();
+  let insertStart: number;
   if (existing) {
     const endLength = document.lineAt(existing.endLine).text.length;
     edit.replace(
       document.uri,
-      new vscode.Range(existing.beginLine, 0, existing.endLine, endLength),
-      wrapped,
+      new vscode.Range(existing.startLine, 0, existing.endLine, endLength),
+      shaped,
     );
+    insertStart = existing.startLine;
+    known.delete(existing.text);
   } else {
     const endLength = document.lineAt(block.endLine).text.length;
-    edit.insert(document.uri, new vscode.Position(block.endLine, endLength), `\n${wrapped}`);
+    edit.insert(document.uri, new vscode.Position(block.endLine, endLength), `\n${shaped}`);
+    insertStart = block.endLine + 1;
   }
-  await vscode.workspace.applyEdit(edit);
+
+  const applied = await vscode.workspace.applyEdit(edit);
+  if (!applied) {
+    void vscode.window.showWarningMessage('seniorvibes: could not apply the edit.');
+    return;
+  }
+  known.add(shaped);
+
+  // Highlight the freshly written code, then let it fade back to normal.
+  const insertEnd = insertStart + shaped.split('\n').length - 1;
+  if (insertEnd < document.lineCount) {
+    const range = new vscode.Range(insertStart, 0, insertEnd, document.lineAt(insertEnd).text.length);
+    flashRange(editor, range, getHighlight());
+  }
 }

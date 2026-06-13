@@ -69,6 +69,22 @@
           "type": "number",
           "default": 10,
           "description": "Lines of code below the insertion point sent as context."
+        },
+        "seniorvibes.highlight.style": {
+          "type": "string",
+          "enum": ["foreground", "background", "none"],
+          "default": "foreground",
+          "markdownDescription": "How to briefly mark freshly generated code. `foreground` recolors the text (overrides syntax colors until it clears); `background` tints behind it (keeps syntax colors); `none` disables it."
+        },
+        "seniorvibes.highlight.color": {
+          "type": "string",
+          "default": "",
+          "description": "Highlight color (any CSS color). Empty uses a sensible default per style."
+        },
+        "seniorvibes.highlight.durationMs": {
+          "type": "number",
+          "default": 5000,
+          "description": "How long the highlight stays before the code returns to normal. 0 disables it."
         }
       }
     }

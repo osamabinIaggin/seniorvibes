@@ -1,64 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  commentStyle,
-  hashDirectives,
-  wrapGenerated,
-  findExistingBlock,
-} from '../src/fence.ts';
 import { stripCodeFences, reindent, shapeOutput } from '../src/output.ts';
 import { assemblePrompt } from '../src/prompt.ts';
-
-// --- fence / comment style ---------------------------------------------------
-
-test('commentStyle — line-comment languages', () => {
-  assert.deepEqual(commentStyle('typescript'), { prefix: '//', suffix: '' });
-  assert.deepEqual(commentStyle('python'), { prefix: '#', suffix: '' });
-  assert.deepEqual(commentStyle('sql'), { prefix: '--', suffix: '' });
-  assert.deepEqual(commentStyle('unknown-lang'), { prefix: '//', suffix: '' });
-});
-
-test('commentStyle — block-only languages', () => {
-  assert.deepEqual(commentStyle('html'), { prefix: '<!--', suffix: '-->' });
-  assert.deepEqual(commentStyle('css'), { prefix: '/*', suffix: '*/' });
-});
-
-test('hashDirectives — deterministic and input-sensitive', () => {
-  assert.equal(hashDirectives(['a', 'b']), hashDirectives(['a', 'b']));
-  assert.notEqual(hashDirectives(['a', 'b']), hashDirectives(['a', 'c']));
-});
-
-test('wrapGenerated — line comment fences', () => {
-  const out = wrapGenerated('  ', 'typescript', 'abc', 'const x = 1;');
-  assert.equal(out, '  // seniorvibes:begin abc\nconst x = 1;\n  // seniorvibes:end abc');
-});
-
-test('wrapGenerated — block comment fences (html)', () => {
-  const out = wrapGenerated('', 'html', 'xyz', '<p></p>');
-  assert.equal(out, '<!-- seniorvibes:begin xyz -->\n<p></p>\n<!-- seniorvibes:end xyz -->');
-});
-
-test('findExistingBlock — detects a prior block directly below', () => {
-  const lines = [
-    '$# do x',
-    '// seniorvibes:begin abc',
-    'const x = 1;',
-    '// seniorvibes:end abc',
-    'after',
-  ];
-  const b = findExistingBlock((n) => lines[n], lines.length, 1);
-  assert.deepEqual(b, { beginLine: 1, endLine: 3 });
-});
-
-test('findExistingBlock — null when the start line is not a begin marker', () => {
-  const lines = ['$# do x', 'const x = 1;'];
-  assert.equal(findExistingBlock((n) => lines[n], lines.length, 1), null);
-});
-
-test('findExistingBlock — null when begin has no matching end', () => {
-  const lines = ['// seniorvibes:begin abc', 'const x = 1;'];
-  assert.equal(findExistingBlock((n) => lines[n], lines.length, 0), null);
-});
 
 // --- output sanitization -----------------------------------------------------
 

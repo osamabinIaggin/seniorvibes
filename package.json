@@ -5,6 +5,10 @@
   "version": "0.0.1",
   "publisher": "seniorvibes",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/osamabinIaggin/seniorvibes.git"
+  },
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -46,7 +50,9 @@
         },
         "seniorvibes.provider": {
           "type": "string",
-          "enum": ["ollama"],
+          "enum": [
+            "ollama"
+          ],
           "default": "ollama",
           "description": "Code-generation backend."
         },
@@ -72,7 +78,11 @@
         },
         "seniorvibes.highlight.style": {
           "type": "string",
-          "enum": ["foreground", "background", "none"],
+          "enum": [
+            "foreground",
+            "background",
+            "none"
+          ],
           "default": "foreground",
           "markdownDescription": "How to briefly mark freshly generated code. `foreground` recolors the text (overrides syntax colors until it clears); `background` tints behind it (keeps syntax colors); `none` disables it."
         },
@@ -117,11 +127,13 @@
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
     "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-transform-types --test \"test/*.test.ts\"",
-    "verify": "npm run check-types && npm run lint && npm run test && npm run compile"
+    "verify": "npm run check-types && npm run lint && npm run test && npm run compile",
+    "vsix": "vsce package --no-dependencies"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^3.9.2",
     "esbuild": "^0.21.5",
     "eslint": "^9.9.0",
     "typescript": "^5.5.4",

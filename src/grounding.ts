@@ -7,6 +7,17 @@ export interface GroundedSymbol {
   readonly source: string;
 }
 
+const LSP_TIMEOUT_MS = 1500;
+const MAX_CANDIDATES = 12;
+
+/** Resolves to undefined if the underlying call doesn't settle within `ms`. */
+function withTimeout<T>(work: Thenable<T>, ms: number): Promise<T | undefined> {
+  return Promise.race([
+    Promise.resolve(work),
+    new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), ms)),
+  ]);
+}
+
 function hoverToMarkdown(hovers: vscode.Hover[] | undefined): string {
   if (!hovers) {
     return '';
@@ -34,7 +45,7 @@ export async function gatherGroundedSymbols(
 ): Promise<GroundedSymbol[]> {
   const candidates = [
     ...new Set(directiveTexts.flatMap((t) => extractCandidateIdentifiers(t))),
-  ];
+  ].slice(0, MAX_CANDIDATES);
   const results: GroundedSymbol[] = [];
 
   for (const name of candidates) {
@@ -42,9 +53,12 @@ export async function gatherGroundedSymbols(
       break;
     }
     try {
-      const symbols = await vscode.commands.executeCommand<vscode.SymbolInformation[]>(
-        'vscode.executeWorkspaceSymbolProvider',
-        name,
+      const symbols = await withTimeout(
+        vscode.commands.executeCommand<vscode.SymbolInformation[]>(
+          'vscode.executeWorkspaceSymbolProvider',
+          name,
+        ),
+        LSP_TIMEOUT_MS,
       );
       const exact = (symbols ?? []).filter((s) => s.name === name);
       if (exact.length === 0) {
@@ -53,10 +67,13 @@ export async function gatherGroundedSymbols(
       const pick =
         exact.find((s) => s.location.uri.toString() === fromUri.toString()) ?? exact[0];
 
-      const hovers = await vscode.commands.executeCommand<vscode.Hover[]>(
-        'vscode.executeHoverProvider',
-        pick.location.uri,
-        pick.location.range.start,
+      const hovers = await withTimeout(
+        vscode.commands.executeCommand<vscode.Hover[]>(
+          'vscode.executeHoverProvider',
+          pick.location.uri,
+          pick.location.range.start,
+        ),
+        LSP_TIMEOUT_MS,
       );
       const signature = extractSignatureFromHover(hoverToMarkdown(hovers));
       if (!signature) {

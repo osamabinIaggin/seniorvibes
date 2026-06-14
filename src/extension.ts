@@ -2,10 +2,11 @@ import * as vscode from 'vscode';
 import { getSentinel } from './config';
 import { DirectiveContextKey } from './contextKey';
 import { DirectiveCodeLensProvider } from './codeLensProvider';
-import { runGenerate } from './generate';
+import { runGenerate, registerGenerate } from './generate';
 
 export function activate(context: vscode.ExtensionContext): void {
   console.log('[seniorvibes] activated');
+  registerGenerate(context);
 
   // --- Phase 1: liveness check -------------------------------------------------
   context.subscriptions.push(

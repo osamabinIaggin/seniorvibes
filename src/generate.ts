@@ -21,6 +21,23 @@ function log(message: string): void {
   channel.appendLine(message);
 }
 
+/** Documents currently generating, so overlapping runs in the same file are rejected. */
+const inProgress = new Set<string>();
+/** Active directive-cleanup controllers, disposed on deactivate. */
+const activeCleanups = new Set<DirectiveCleanup>();
+
+/** Wires generation resources into the extension lifecycle. Call from `activate`. */
+export function registerGenerate(context: vscode.ExtensionContext): void {
+  if (!channel) {
+    channel = vscode.window.createOutputChannel('seniorvibes');
+  }
+  context.subscriptions.push(
+    channel,
+    vscode.workspace.onDidCloseTextDocument((doc) => generatedByDoc.delete(doc.uri.toString())),
+    { dispose: () => [...activeCleanups].forEach((c) => c.dispose()) },
+  );
+}
+
 function knownFor(uri: string): Set<string> {
   let set = generatedByDoc.get(uri);
   if (!set) {
@@ -68,6 +85,20 @@ async function readProjectPrompt(): Promise<string | undefined> {
  * on re-run) clean code below the directives — with a brief highlight on the new code.
  */
 export async function runGenerate(editor: vscode.TextEditor, anchorLine: number): Promise<void> {
+  const uri = editor.document.uri.toString();
+  if (inProgress.has(uri)) {
+    void vscode.window.showInformationMessage('seniorvibes: already generating in this file.');
+    return;
+  }
+  inProgress.add(uri);
+  try {
+    await doGenerate(editor, anchorLine);
+  } finally {
+    inProgress.delete(uri);
+  }
+}
+
+async function doGenerate(editor: vscode.TextEditor, anchorLine: number): Promise<void> {
   const settings = getSettings();
   const document = editor.document;
   const uri = document.uri.toString();
@@ -245,6 +276,7 @@ class DirectiveCleanup {
         }
       }),
     );
+    activeCleanups.add(this);
     this.machine.start(this.cursorOnDirective());
   }
 
@@ -316,7 +348,7 @@ class DirectiveCleanup {
     this.dispose();
   }
 
-  private dispose(): void {
+  dispose(): void {
     if (this.disposed) {
       return;
     }
@@ -325,5 +357,6 @@ class DirectiveCleanup {
     for (const sub of this.subs) {
       sub.dispose();
     }
+    activeCleanups.delete(this);
   }
 }

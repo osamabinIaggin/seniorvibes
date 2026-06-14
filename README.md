@@ -14,22 +14,16 @@ $# add a POST /users/:id/invite endpoint — validate body with InviteDto, call 
 Press **Shift+Enter** (on the directive line) and the code is generated and inserted right
 below it, grounded in the real symbols in your project. The directive then tidies itself away.
 
-## Providers
+## Connect your models
 
-Pick a backend with `seniorvibes.provider`:
+Set `seniorvibes.provider`, and for the cloud ones run **`seniorvibes: Set API Key`** (keys go in
+the OS keychain, never settings).
 
-- **`ollama`** (default) — local, no key. Needs [Ollama](https://ollama.com) running with a code
-  model pulled: `ollama pull qwen2.5-coder`.
-- **`openai`** — any **OpenAI-compatible** Chat Completions API. Point `seniorvibes.openai.baseUrl`
-  at OpenAI, **OpenRouter** (hundreds of models), Groq, Together, Mistral, DeepSeek, or a local
-  LM Studio / vLLM server.
-- **`anthropic`** — Claude via the Messages API.
+- **`anthropic`** — Claude. `anthropic.model` e.g. `claude-opus-4-8`, `claude-sonnet-4-6`, `claude-haiku-4-5`.
+- **`openai`** — any OpenAI-compatible API via `openai.baseUrl`: OpenAI, OpenRouter, Groq, Together, Mistral, DeepSeek, LM Studio, vLLM.
+- **`ollama`** (default) — local, no key: `ollama pull qwen2.5-coder`.
 
-For `openai`/`anthropic`, set your key with the **`seniorvibes: Set API Key`** command — keys are
-stored in the OS keychain (SecretStorage), **never in settings**.
-
-**Privacy:** with `ollama`, nothing leaves your machine. With `openai`/`anthropic`, the directive
-plus the surrounding code context is sent to that provider for generation.
+Privacy: `ollama` stays on your machine; `openai`/`anthropic` send the directive + context to that provider.
 
 ## How it works
 
@@ -69,6 +63,3 @@ plus the surrounding code context is sent to that provider for generation.
 - A `$#` inside a string literal still triggers (we don't tokenize the line); explicit triggering
   keeps the harm low.
 - Embedded languages (JS-in-HTML, etc.) use the host file's language.
-- Re-run replacement is tracked in memory — a deliberate consequence of clean, marker-less output.
-  The in-session tweak loop replaces correctly; after a window reload, or if the generated block was
-  reformatted or hand-edited, a re-run inserts a fresh block instead of replacing.

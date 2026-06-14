@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { getSettings, getHighlight, type Settings } from './config';
+import { getSettings, getHighlight, activeModel, type Settings } from './config';
 import { collectDirectiveBlock } from './directive';
 import { assemblePrompt } from './prompt';
 import { shapeOutput } from './output';
@@ -7,8 +7,11 @@ import { findReplaceableBlock, locateBlock } from './recent';
 import { DirectiveCleanupMachine } from './cleanup';
 import { flashRange } from './highlight';
 import { OllamaProvider } from './ollama';
+import { OpenAiProvider } from './openai';
+import { AnthropicProvider } from './anthropic';
 import { ProviderError, type Provider } from './provider';
 import { gatherGroundedSymbols } from './grounding';
+import { getApiKey } from './secrets';
 
 /** Per-document memory of generated blocks, so a re-run can find and replace them. */
 const generatedByDoc = new Map<string, Set<string>>();
@@ -47,9 +50,15 @@ function knownFor(uri: string): Set<string> {
   return set;
 }
 
-function makeProvider(settings: Settings): Provider {
-  // Only Ollama is implemented in the MVP; the interface lets others drop in later.
-  return new OllamaProvider(settings.ollamaEndpoint);
+async function makeProvider(settings: Settings): Promise<Provider> {
+  switch (settings.provider) {
+    case 'openai':
+      return new OpenAiProvider(settings.openaiBaseUrl, await getApiKey('openai'));
+    case 'anthropic':
+      return new AnthropicProvider(settings.anthropicBaseUrl, await getApiKey('anthropic'));
+    default:
+      return new OllamaProvider(settings.ollamaEndpoint);
+  }
 }
 
 /** Inclusive `start`, exclusive `end`, clamped to the document. */
@@ -140,7 +149,8 @@ async function doGenerate(editor: vscode.TextEditor, anchorLine: number): Promis
     groundedSymbols,
   });
 
-  const provider = makeProvider(settings);
+  const provider = await makeProvider(settings);
+  const model = activeModel(settings);
 
   let raw: string;
   try {
@@ -148,14 +158,14 @@ async function doGenerate(editor: vscode.TextEditor, anchorLine: number): Promis
       {
         location: vscode.ProgressLocation.Notification,
         cancellable: true,
-        title: `seniorvibes: generating (${settings.ollamaModel})`,
+        title: `seniorvibes: generating (${model})`,
       },
       async (progress, token) => {
         const controller = new AbortController();
         token.onCancellationRequested(() => controller.abort());
         let chars = 0;
         return provider.generate(
-          { system, user, model: settings.ollamaModel },
+          { system, user, model },
           {
             signal: controller.signal,
             onToken: (chunk) => {
@@ -170,6 +180,16 @@ async function doGenerate(editor: vscode.TextEditor, anchorLine: number): Promis
     if (error instanceof ProviderError) {
       if (error.kind === 'aborted') {
         return; // user cancelled — leave the buffer untouched
+      }
+      if (error.kind === 'auth') {
+        void vscode.window
+          .showErrorMessage(`seniorvibes: ${error.message}`, 'Set API Key')
+          .then((choice) => {
+            if (choice === 'Set API Key') {
+              void vscode.commands.executeCommand('seniorvibes.setApiKey');
+            }
+          });
+        return;
       }
       void vscode.window.showErrorMessage(`seniorvibes: ${error.message}`);
       return;

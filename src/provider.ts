@@ -19,6 +19,8 @@ export interface GenerateOptions {
 export type ProviderErrorKind =
   | 'unreachable'
   | 'model-missing'
+  | 'auth'
+  | 'rate-limit'
   | 'http'
   | 'aborted'
   | 'unknown';

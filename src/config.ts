@@ -8,6 +8,10 @@ export interface Settings {
   readonly provider: string;
   readonly ollamaEndpoint: string;
   readonly ollamaModel: string;
+  readonly openaiBaseUrl: string;
+  readonly openaiModel: string;
+  readonly anthropicBaseUrl: string;
+  readonly anthropicModel: string;
   readonly linesAbove: number;
   readonly linesBelow: number;
   readonly removeDirective: boolean;
@@ -30,6 +34,10 @@ export function getSettings(): Settings {
     provider: c.get<string>('provider') ?? 'ollama',
     ollamaEndpoint: c.get<string>('ollama.endpoint') ?? 'http://localhost:11434',
     ollamaModel: c.get<string>('ollama.model') ?? 'qwen2.5-coder',
+    openaiBaseUrl: c.get<string>('openai.baseUrl') ?? 'https://api.openai.com/v1',
+    openaiModel: c.get<string>('openai.model') ?? 'gpt-4o-mini',
+    anthropicBaseUrl: c.get<string>('anthropic.baseUrl') ?? 'https://api.anthropic.com',
+    anthropicModel: c.get<string>('anthropic.model') ?? 'claude-opus-4-8',
     linesAbove: c.get<number>('context.linesAbove') ?? 40,
     linesBelow: c.get<number>('context.linesBelow') ?? 10,
     removeDirective: c.get<boolean>('directive.removeAfterGenerate') ?? true,
@@ -37,6 +45,18 @@ export function getSettings(): Settings {
     groundingEnabled: c.get<boolean>('grounding.enabled') ?? true,
     groundingMaxSymbols: c.get<number>('grounding.maxSymbols') ?? 8,
   };
+}
+
+/** The model string for the currently selected provider. */
+export function activeModel(settings: Settings): string {
+  switch (settings.provider) {
+    case 'openai':
+      return settings.openaiModel;
+    case 'anthropic':
+      return settings.anthropicModel;
+    default:
+      return settings.ollamaModel;
+  }
 }
 
 /** Style for the temporary highlight applied to freshly generated code. */

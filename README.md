@@ -14,12 +14,19 @@ $# add a POST /users/:id/invite endpoint — validate body with InviteDto, call 
 Press **Shift+Enter** (on the directive line) and the code is generated and inserted right
 below it, grounded in the real symbols in your project. The directive then tidies itself away.
 
-## Requirements
+## Providers
 
-- [Ollama](https://ollama.com) running locally with a code model pulled:
-  ```bash
-  ollama pull qwen2.5-coder
-  ```
+Pick a backend with `seniorvibes.provider`:
+
+- **`ollama`** (default) — local, no key. Needs [Ollama](https://ollama.com) running with a code
+  model pulled: `ollama pull qwen2.5-coder`.
+- **`openai`** — any **OpenAI-compatible** Chat Completions API. Point `seniorvibes.openai.baseUrl`
+  at OpenAI, **OpenRouter** (hundreds of models), Groq, Together, Mistral, DeepSeek, or a local
+  LM Studio / vLLM server.
+- **`anthropic`** — Claude via the Messages API.
+
+For `openai`/`anthropic`, set your key with the **`seniorvibes: Set API Key`** command — keys are
+stored in the OS keychain (SecretStorage), **never in settings**.
 
 ## How it works
 
@@ -43,9 +50,10 @@ below it, grounded in the real symbols in your project. The directive then tidie
 | Setting | Default | Description |
 |---|---|---|
 | `seniorvibes.sentinel` | `$#` | Trigger token; may sit after existing code. Regex-escaped automatically. |
-| `seniorvibes.provider` | `ollama` | Generation backend. |
-| `seniorvibes.ollama.endpoint` | `http://localhost:11434` | Ollama server URL. |
-| `seniorvibes.ollama.model` | `qwen2.5-coder` | Model used for generation. |
+| `seniorvibes.provider` | `ollama` | Backend: `ollama`, `openai`, or `anthropic`. |
+| `seniorvibes.ollama.endpoint` / `ollama.model` | `localhost:11434` / `qwen2.5-coder` | Local Ollama. |
+| `seniorvibes.openai.baseUrl` / `openai.model` | `api.openai.com/v1` / `gpt-4o-mini` | OpenAI-compatible endpoint + model. |
+| `seniorvibes.anthropic.baseUrl` / `anthropic.model` | `api.anthropic.com` / `claude-opus-4-8` | Anthropic API + Claude model. |
 | `seniorvibes.context.linesAbove` / `linesBelow` | `40` / `10` | Lines of surrounding context sent. |
 | `seniorvibes.grounding.enabled` | `true` | Resolve referenced symbols to real signatures via the LSP. |
 | `seniorvibes.grounding.maxSymbols` | `8` | Max grounded signatures per generation. |

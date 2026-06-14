@@ -26,6 +26,14 @@
       {
         "command": "seniorvibes.generate",
         "title": "seniorvibes: generate"
+      },
+      {
+        "command": "seniorvibes.setApiKey",
+        "title": "seniorvibes: Set API Key"
+      },
+      {
+        "command": "seniorvibes.clearApiKey",
+        "title": "seniorvibes: Clear API Key"
       }
     ],
     "keybindings": [
@@ -51,10 +59,17 @@
         "seniorvibes.provider": {
           "type": "string",
           "enum": [
-            "ollama"
+            "ollama",
+            "openai",
+            "anthropic"
+          ],
+          "enumDescriptions": [
+            "Local Ollama server (no API key).",
+            "Any OpenAI-compatible Chat Completions API (OpenAI, Groq, OpenRouter, Together, Mistral, DeepSeek, LM Studio, vLLM…).",
+            "Anthropic Claude (Messages API)."
           ],
           "default": "ollama",
-          "description": "Code-generation backend."
+          "markdownDescription": "Code-generation backend. For `openai`/`anthropic`, set the key via the **seniorvibes: Set API Key** command (keys are stored securely, not in settings)."
         },
         "seniorvibes.ollama.endpoint": {
           "type": "string",
@@ -65,6 +80,26 @@
           "type": "string",
           "default": "qwen2.5-coder",
           "description": "Ollama model used for generation. Pull it first, e.g. `ollama pull qwen2.5-coder`."
+        },
+        "seniorvibes.openai.baseUrl": {
+          "type": "string",
+          "default": "https://api.openai.com/v1",
+          "markdownDescription": "Base URL for the OpenAI-compatible provider. Point it at any compatible endpoint — e.g. `https://openrouter.ai/api/v1`, `https://api.groq.com/openai/v1`, or a local `http://localhost:1234/v1`."
+        },
+        "seniorvibes.openai.model": {
+          "type": "string",
+          "default": "gpt-4o-mini",
+          "description": "Model id for the OpenAI-compatible provider (e.g. gpt-4o, llama-3.3-70b, deepseek-chat, or an OpenRouter slug like anthropic/claude-3.5-sonnet)."
+        },
+        "seniorvibes.anthropic.baseUrl": {
+          "type": "string",
+          "default": "https://api.anthropic.com",
+          "description": "Base URL for the Anthropic API."
+        },
+        "seniorvibes.anthropic.model": {
+          "type": "string",
+          "default": "claude-opus-4-8",
+          "description": "Claude model id (e.g. claude-opus-4-8, claude-sonnet-4-6, claude-haiku-4-5 — sonnet/haiku are cheaper)."
         },
         "seniorvibes.context.linesAbove": {
           "type": "number",

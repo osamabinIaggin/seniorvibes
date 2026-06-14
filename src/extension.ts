@@ -3,10 +3,46 @@ import { getSentinel } from './config';
 import { DirectiveContextKey } from './contextKey';
 import { DirectiveCodeLensProvider } from './codeLensProvider';
 import { runGenerate, registerGenerate } from './generate';
+import { initSecrets, setApiKey, clearApiKey } from './secrets';
+
+const API_PROVIDERS = ['anthropic', 'openai'];
 
 export function activate(context: vscode.ExtensionContext): void {
   console.log('[seniorvibes] activated');
   registerGenerate(context);
+  initSecrets(context.secrets);
+
+  // API key management — keys live in OS-keychain-backed SecretStorage, never settings.
+  context.subscriptions.push(
+    vscode.commands.registerCommand('seniorvibes.setApiKey', async () => {
+      const provider = await vscode.window.showQuickPick(API_PROVIDERS, {
+        placeHolder: 'Which provider is this API key for?',
+      });
+      if (!provider) {
+        return;
+      }
+      const value = await vscode.window.showInputBox({
+        password: true,
+        ignoreFocusOut: true,
+        prompt: `Enter the ${provider} API key (stored securely, not in settings)`,
+      });
+      if (!value) {
+        return;
+      }
+      await setApiKey(provider, value.trim());
+      void vscode.window.showInformationMessage(`seniorvibes: ${provider} API key saved.`);
+    }),
+    vscode.commands.registerCommand('seniorvibes.clearApiKey', async () => {
+      const provider = await vscode.window.showQuickPick(API_PROVIDERS, {
+        placeHolder: 'Clear the stored key for which provider?',
+      });
+      if (!provider) {
+        return;
+      }
+      await clearApiKey(provider);
+      void vscode.window.showInformationMessage(`seniorvibes: ${provider} API key cleared.`);
+    }),
+  );
 
   // --- Phase 1: liveness check -------------------------------------------------
   context.subscriptions.push(

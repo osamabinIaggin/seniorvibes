@@ -95,6 +95,16 @@
           "type": "number",
           "default": 5000,
           "description": "Delay before the directive line is auto-removed. 0 keeps the directive."
+        },
+        "seniorvibes.grounding.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Resolve symbols named in the directive (e.g. `NotFoundException`, `inviteService`) to their real signatures via the language server, and feed them to the model as ground truth."
+        },
+        "seniorvibes.grounding.maxSymbols": {
+          "type": "number",
+          "default": 8,
+          "description": "Maximum number of grounded symbol signatures to include per generation."
         }
       }
     }

@@ -15,6 +15,8 @@ export interface PromptInput {
   readonly contextBelow: readonly string[];
   /** Optional project conventions (AGENTS.md / .seniorvibes.md). */
   readonly projectPrompt?: string;
+  /** Real signatures of symbols the directive references (from the language server). */
+  readonly groundedSymbols?: readonly { name: string; signature: string; source: string }[];
 }
 
 export interface AssembledPrompt {
@@ -28,6 +30,7 @@ function section(title: string, body: string): string {
 
 export function assemblePrompt(input: PromptInput): AssembledPrompt {
   const { languageId, filePath, directives, contextAbove, contextBelow, projectPrompt } = input;
+  const groundedSymbols = input.groundedSymbols ?? [];
 
   let system =
     `You are seniorvibes, a code-generation assistant embedded directly inside a source file.\n` +
@@ -48,6 +51,17 @@ export function assemblePrompt(input: PromptInput): AssembledPrompt {
   }
   if (contextBelow.length > 0) {
     parts.push(section('context below — already in the file, do NOT repeat', contextBelow.join('\n')));
+  }
+  if (groundedSymbols.length > 0) {
+    const body = groundedSymbols
+      .map((s) => `${s.signature}   // ${s.name} — from ${s.source}`)
+      .join('\n');
+    parts.push(
+      section(
+        'known symbols — real definitions in this project, use these signatures EXACTLY',
+        body,
+      ),
+    );
   }
   const numbered = directives.map((d, i) => `${i + 1}. ${d}`).join('\n');
   const allOf =

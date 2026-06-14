@@ -12,6 +12,8 @@ export interface Settings {
   readonly linesBelow: number;
   readonly removeDirective: boolean;
   readonly removeDirectiveDelayMs: number;
+  readonly groundingEnabled: boolean;
+  readonly groundingMaxSymbols: number;
 }
 
 /** The configured trigger token, falling back to the default if unset/empty. */
@@ -32,6 +34,8 @@ export function getSettings(): Settings {
     linesBelow: c.get<number>('context.linesBelow') ?? 10,
     removeDirective: c.get<boolean>('directive.removeAfterGenerate') ?? true,
     removeDirectiveDelayMs: c.get<number>('directive.removeDelayMs') ?? 5000,
+    groundingEnabled: c.get<boolean>('grounding.enabled') ?? true,
+    groundingMaxSymbols: c.get<number>('grounding.maxSymbols') ?? 8,
   };
 }
 

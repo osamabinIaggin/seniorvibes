@@ -85,6 +85,33 @@ test('assemblePrompt — user carries file, directives and present context', () 
   assert.match(user, /--- context below/);
 });
 
+test('assemblePrompt — renders grounded symbols with their signatures', () => {
+  const { user } = assemblePrompt({
+    languageId: 'typescript',
+    filePath: 'src/x.ts',
+    directives: ['throw NotFoundException'],
+    contextAbove: [],
+    contextBelow: [],
+    groundedSymbols: [
+      { name: 'NotFoundException', signature: 'class NotFoundException extends HttpException', source: 'src/errors.ts' },
+    ],
+  });
+  assert.match(user, /known symbols/);
+  assert.match(user, /class NotFoundException extends HttpException/);
+  assert.match(user, /from src\/errors\.ts/);
+});
+
+test('assemblePrompt — omits the known-symbols section when there are none', () => {
+  const { user } = assemblePrompt({
+    languageId: 'typescript',
+    filePath: 'src/x.ts',
+    directives: ['do a'],
+    contextAbove: [],
+    contextBelow: [],
+  });
+  assert.doesNotMatch(user, /known symbols/);
+});
+
 test('assemblePrompt — omits empty context sections and includes project prompt', () => {
   const { system, user } = assemblePrompt({
     languageId: 'go',

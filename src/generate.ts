@@ -8,9 +8,18 @@ import { DirectiveCleanupMachine } from './cleanup';
 import { flashRange } from './highlight';
 import { OllamaProvider } from './ollama';
 import { ProviderError, type Provider } from './provider';
+import { gatherGroundedSymbols } from './grounding';
 
 /** Per-document memory of generated blocks, so a re-run can find and replace them. */
 const generatedByDoc = new Map<string, Set<string>>();
+
+let channel: vscode.OutputChannel | undefined;
+function log(message: string): void {
+  if (!channel) {
+    channel = vscode.window.createOutputChannel('seniorvibes');
+  }
+  channel.appendLine(message);
+}
 
 function knownFor(uri: string): Set<string> {
   let set = generatedByDoc.get(uri);
@@ -80,6 +89,13 @@ export async function runGenerate(editor: vscode.TextEditor, anchorLine: number)
   ];
   const contextBelow = sliceLines(document, belowStart, belowStart + settings.linesBelow);
 
+  const groundedSymbols = settings.groundingEnabled
+    ? await gatherGroundedSymbols(block.texts, document.uri, settings.groundingMaxSymbols)
+    : [];
+  if (groundedSymbols.length > 0) {
+    log(`grounded ${groundedSymbols.length} symbol(s): ${groundedSymbols.map((s) => s.name).join(', ')}`);
+  }
+
   const { system, user } = assemblePrompt({
     languageId: document.languageId,
     filePath: vscode.workspace.asRelativePath(document.uri),
@@ -87,6 +103,7 @@ export async function runGenerate(editor: vscode.TextEditor, anchorLine: number)
     contextAbove,
     contextBelow,
     projectPrompt: await readProjectPrompt(),
+    groundedSymbols,
   });
 
   const provider = makeProvider(settings);

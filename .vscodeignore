@@ -10,5 +10,6 @@ SPEC.md
 PHASES.md
 CONTRIBUTING.md
 test/**
+media/**
 **/*.map
 **/*.ts

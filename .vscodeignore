@@ -8,5 +8,7 @@ eslint.config.js
 tsconfig.json
 SPEC.md
 PHASES.md
+CONTRIBUTING.md
+test/**
 **/*.map
 **/*.ts

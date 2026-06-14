@@ -28,6 +28,9 @@ Pick a backend with `seniorvibes.provider`:
 For `openai`/`anthropic`, set your key with the **`seniorvibes: Set API Key`** command — keys are
 stored in the OS keychain (SecretStorage), **never in settings**.
 
+**Privacy:** with `ollama`, nothing leaves your machine. With `openai`/`anthropic`, the directive
+plus the surrounding code context is sent to that provider for generation.
+
 ## How it works
 
 - **Trigger** — type the sentinel `$#`, then your instruction. A `▶ seniorvibes: generate`
@@ -43,7 +46,6 @@ stored in the OS keychain (SecretStorage), **never in settings**.
 - **Recent-code highlight** — freshly written code is briefly highlighted, then fades to normal.
 - **Self-tidying directive** — after generation the directive line auto-removes (leaving only the
   code); rest your cursor on it to keep it for another iteration.
-- **Local-only** — nothing leaves your machine.
 
 ## Settings
 
@@ -67,13 +69,6 @@ stored in the OS keychain (SecretStorage), **never in settings**.
 - A `$#` inside a string literal still triggers (we don't tokenize the line); explicit triggering
   keeps the harm low.
 - Embedded languages (JS-in-HTML, etc.) use the host file's language.
-- Re-run replacement is in-memory: after a reload or a reformat of the generated block, a re-run
-  inserts fresh rather than replacing.
-
-## Development
-
-```bash
-npm install
-npm run verify   # type-check + lint + tests + build
-npm run watch    # rebuild on change (F5 to launch the Extension Development Host)
-```
+- Re-run replacement is tracked in memory — a deliberate consequence of clean, marker-less output.
+  The in-session tweak loop replaces correctly; after a window reload, or if the generated block was
+  reformatted or hand-edited, a re-run inserts a fresh block instead of replacing.

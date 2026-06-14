@@ -79,6 +79,9 @@ export async function runGenerate(editor: vscode.TextEditor, anchorLine: number)
     return;
   }
 
+  // Capture the version before ANY await (grounding / project-prompt / generation), so the
+  // guard below covers the whole read→generate→write window and never inserts on stale lines.
+  const versionBefore = document.version;
   const known = knownFor(uri);
   const existing = findReplaceableBlock(getLine, document.lineCount, block.endLine + 1, known);
   const belowStart = existing ? existing.endLine + 1 : block.endLine + 1;
@@ -107,7 +110,6 @@ export async function runGenerate(editor: vscode.TextEditor, anchorLine: number)
   });
 
   const provider = makeProvider(settings);
-  const versionBefore = document.version;
 
   let raw: string;
   try {
@@ -169,7 +171,6 @@ export async function runGenerate(editor: vscode.TextEditor, anchorLine: number)
       shaped,
     );
     insertStart = existing.startLine;
-    known.delete(existing.text);
   } else {
     const endLength = document.lineAt(block.endLine).text.length;
     edit.insert(document.uri, new vscode.Position(block.endLine, endLength), `\n${shaped}`);
@@ -180,6 +181,11 @@ export async function runGenerate(editor: vscode.TextEditor, anchorLine: number)
   if (!applied) {
     void vscode.window.showWarningMessage('seniorvibes: could not apply the edit.');
     return;
+  }
+  // Update replace-tracking only after a confirmed apply; delete-before-add so a
+  // regenerated-identical block stays tracked.
+  if (existing) {
+    known.delete(existing.text);
   }
   known.add(shaped);
 

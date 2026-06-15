@@ -2,7 +2,7 @@
 
 > Senior devs vibe coding.
 
-![seniorvibes in action](media/demo.gif)
+![seniorvibes in action](https://raw.githubusercontent.com/osamabinIaggin/seniorvibes/main/media/demo.gif)
 
 A VS Code extension where a **one-line directive** becomes a small, reviewable,
 correctly-grounded block of code — placed exactly where you asked for it. Control over magic.

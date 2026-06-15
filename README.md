@@ -7,6 +7,8 @@
 A VS Code extension where a **one-line directive** becomes a small, reviewable,
 correctly-grounded block of code — placed exactly where you asked for it. Control over magic.
 
+https://seniorvibes.vercel.app/
+
 Write a directive on its own line (or after existing code):
 
 ```ts

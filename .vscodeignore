@@ -11,5 +11,6 @@ PHASES.md
 CONTRIBUTING.md
 test/**
 media/**
+site/**
 **/*.map
 **/*.ts
